@@ -70,12 +70,12 @@ public class LoginRepository {
     }
     public void downloadAndSaveImage(String url) {
         OkHttpClient client = new OkHttpClient();
-        Request request = new Request.Builder().url(url+"/"+instance.user.getUserId()+".png").build();
+        Request request = new Request.Builder().url(url+"/images/"+instance.user.getUserId()+".jpg").build();
 
         try (Response response = client.newCall(request).execute()) {
             if (response.isSuccessful() && response.body() != null) {
                 File picturesDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
-                File imageFile = new File(picturesDirectory, instance.user.getUserId()+ ".png");
+                File imageFile = new File(picturesDirectory, instance.user.getUserId()+ ".jpg");
                 try (InputStream inputStream = response.body().byteStream();
                      FileOutputStream outputStream = new FileOutputStream(imageFile)) {
                     byte[] buffer = new byte[2048];

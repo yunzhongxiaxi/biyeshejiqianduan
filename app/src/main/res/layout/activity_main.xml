@@ -8,6 +8,7 @@
         android:id="@+id/ly_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="@color/white"
         android:orientation="vertical">
         <com.google.android.material.appbar.AppBarLayout
             android:layout_width="match_parent"
@@ -48,6 +49,7 @@
                 android:layout_weight="1"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
+                android:background="@color/white"
                 android:src="@drawable/round_volume_up_24"
                 android:id="@+id/audio"/>
             <EditText
@@ -55,11 +57,14 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:id="@+id/input"
-                android:hint="@string/edit_hint"/>
+                android:hint="@string/edit_hint"
+                android:textColor="@color/black"
+                android:textColorHint="@color/black"/>
             <ImageButton
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
+                android:background="@color/white"
                 android:src="@drawable/round_chat_bubble_outline_24"
                 android:id="@+id/send"/>
         </LinearLayout>
@@ -70,6 +75,6 @@
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:layout_gravity="start"
-        app:menu="@menu/drawer_menu" /> <!-- 引用菜单资源 -->
+        app:menu="@menu/drawer_menu" />
 
 </androidx.drawerlayout.widget.DrawerLayout>

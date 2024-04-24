@@ -26,6 +26,7 @@ import android.widget.Toast;
 import com.example.myapplication.MainActivity;
 import com.example.myapplication.R;
 import com.example.myapplication.databinding.ActivityLoginBinding;
+import com.example.myapplication.utils.ApiService;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -35,7 +36,6 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         binding = ActivityLoginBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
@@ -46,7 +46,6 @@ public class LoginActivity extends AppCompatActivity {
         final EditText passwordEditText = binding.password;
         final Button loginButton = binding.login;
         final ProgressBar loadingProgressBar = binding.loading;
-
         loginViewModel.getLoginFormState().observe(this, new Observer<LoginFormState>() {
             @Override
             public void onChanged(@Nullable LoginFormState loginFormState) {
@@ -127,6 +126,14 @@ public class LoginActivity extends AppCompatActivity {
 
             }
         });
+        ApiService.getClient(this);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                loginViewModel.login(usernameEditText.getText().toString(),
+                        passwordEditText.getText().toString());
+            }
+        }).start();
     }
 
     private void updateUiWithUser() {

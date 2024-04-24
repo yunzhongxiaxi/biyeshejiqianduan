@@ -1,5 +1,8 @@
 package com.example.myapplication.utils;
 
+import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -9,6 +12,7 @@ import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.myapplication.ModifyActivity;
 import com.example.myapplication.R;
 import com.example.myapplication.data.LoginRepository;
 import com.example.myapplication.entity.Msg;
@@ -41,7 +45,7 @@ public class MsgAdapter extends RecyclerView.Adapter<MsgAdapter.ViewHolder> {
             holder.leftLayout.setVisibility(View.VISIBLE);  //左可见
             holder.rightLayout.setVisibility(View.GONE);    //右不可见
             holder.hisName.setText(R.string.robot_name);
-            holder.leftMsg.setText(msg.getContent());       //左边显示消息
+            holder.leftMsg.setText(msg.getContent());
         }else if(msg.getType() == Msg.TYPE_SENT){
             if(LoginRepository.instance==null||LoginRepository.instance.icon==null){
                 holder.my_head.setImageResource(R.drawable.icon_default);

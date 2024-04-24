@@ -35,6 +35,8 @@ import android.widget.Toast;
 
 import com.example.myapplication.data.LoginRepository;
 import com.example.myapplication.data.model.LoggedInUser;
+import com.example.myapplication.utils.ApiService;
+import com.example.myapplication.utils.UserApi;
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 
@@ -53,16 +55,17 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 
-import okhttp3.Call;
-import okhttp3.Callback;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
 import okhttp3.RequestBody;
-import okhttp3.Response;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 
 public class ModifyActivity extends AppCompatActivity {
     private TextView textView;
@@ -73,7 +76,6 @@ public class ModifyActivity extends AppCompatActivity {
 
     private Button button;
 
-    private OkHttpClient client;
 
 
     @Override
@@ -81,8 +83,6 @@ public class ModifyActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_modify);
         Toolbar toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        client=new OkHttpClient();
         textView=findViewById(R.id.text_birthday);
         spinner=findViewById(R.id.spinner_gender);
         imageView=findViewById(R.id.image_avatar);
@@ -134,7 +134,7 @@ public class ModifyActivity extends AppCompatActivity {
                 new DatePickerDialog.OnDateSetListener() {
                     @Override
                     public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
-                        textView.setText(String.format(getResources().getString(R.string.current_time),year,month,dayOfMonth));
+                        textView.setText(String.format(getResources().getString(R.string.current_time),year,month+1,dayOfMonth));
                     }
                 }, year, month, day);
         datePickerDialog.show();
@@ -188,66 +188,105 @@ public class ModifyActivity extends AppCompatActivity {
     }
     public void onSaveClick(View v){
         try{
-            updateInformation();
             File imageFile=getImageFileFromImageView(imageView);
+            if(imageFile.length()>1000000){
+                Toast.makeText(this,"头像超过1MB",Toast.LENGTH_LONG).show();
+                return;
+            }
             uploadImageFile(imageFile);
+            updateInformation();
         }catch (Exception e){
             e.printStackTrace();
             Toast.makeText(this,"程序异常",Toast.LENGTH_LONG).show();
         }
     }
 
-    private void updateInformation(){
-        JSONObject jsonObject = new JSONObject();
-        try {
-            jsonObject.put("userId", LoginRepository.instance.user.getUserId());
-            jsonObject.put("userBirthday", textView.getText());
-            jsonObject.put("userSex",spinner.getSelectedItem().toString());
-            jsonObject.put("userName",editText.getText());
-        } catch (JSONException e) {
-            throw new RuntimeException(e);
-        }
-        RequestBody requestJsonBody = RequestBody.create(
-                jsonObject.toString(),
-                MediaType.parse("application/json")
-        );
-        Request postRequest = new Request.Builder()
-                .url(config.update_url)
-                .post(requestJsonBody)
-                .build();
-        client.newCall(postRequest).enqueue(new Callback() {
-            @Override
-            public void onFailure(@NotNull Call call, @NotNull IOException e) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(getApplicationContext(), "网络或服务器状况异常", Toast.LENGTH_SHORT).show();
-                    }
-                });
-            }
-            @Override
-            public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
-                Gson gson = new Gson();
-                String jsonData =response.body().string(); // 从响应体获取的 JSON 字符串
-                Type responseType = new TypeToken<MyR<Void>>(){}.getType();
-                MyR<Void> received = gson.fromJson(jsonData, responseType);
-                if(received.getSuccess()){
-                    LoginRepository.instance.user.setUserName(String.valueOf(editText.getText()));
-                    LoginRepository.instance.user.setUserBirthday((String) textView.getText());
-                    LoginRepository.instance.user.setUserSex(spinner.getSelectedItem().toString());
-                }
-                else {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(getApplicationContext(),"保存失败",Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                }
+    private void updateInformation() {
+        Map<String, Object> userInfo = new HashMap<>();
+        userInfo.put("userId", LoginRepository.instance.user.getUserId());
+        userInfo.put("userBirthday", textView.getText().toString());
+        userInfo.put("userSex", spinner.getSelectedItem().toString());
+        userInfo.put("userName", editText.getText().toString());
 
+        UserApi service = ApiService.getClient().create(UserApi.class);
+        Call<MyR<Void>> call = service.updateUser(userInfo);
+
+        call.enqueue(new Callback<MyR<Void>>() {
+            @Override
+            public void onResponse(Call<MyR<Void>> call, Response<MyR<Void>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    MyR<Void> received = response.body();
+                    if (received.getSuccess()) {
+                        LoginRepository.instance.user.setUserName(editText.getText().toString());
+                        LoginRepository.instance.user.setUserBirthday(textView.getText().toString());
+                        LoginRepository.instance.user.setUserSex(spinner.getSelectedItem().toString());
+                    } else {
+                        runOnUiThread(() -> Toast.makeText(getApplicationContext(), "保存失败", Toast.LENGTH_LONG).show());
+                    }
+                } else {
+                    runOnUiThread(() -> Toast.makeText(getApplicationContext(), "保存失败", Toast.LENGTH_LONG).show());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<MyR<Void>> call, Throwable t) {
+                runOnUiThread(() -> Toast.makeText(getApplicationContext(), "网络或服务器状况异常", Toast.LENGTH_SHORT).show());
             }
         });
     }
+
+
+    //    private void updateInformation(){
+//        JSONObject jsonObject = new JSONObject();
+//        try {
+//            jsonObject.put("userId", LoginRepository.instance.user.getUserId());
+//            jsonObject.put("userBirthday", textView.getText());
+//            jsonObject.put("userSex",spinner.getSelectedItem().toString());
+//            jsonObject.put("userName",editText.getText());
+//        } catch (JSONException e) {
+//            throw new RuntimeException(e);
+//        }
+//        RequestBody requestJsonBody = RequestBody.create(
+//                jsonObject.toString(),
+//                MediaType.parse("application/json")
+//        );
+//        Request postRequest = new Request.Builder()
+//                .url(config.update_url)
+//                .post(requestJsonBody)
+//                .build();
+//        client.newCall(postRequest).enqueue(new Callback() {
+//            @Override
+//            public void onFailure(@NotNull Call call, @NotNull IOException e) {
+//                runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        Toast.makeText(getApplicationContext(), "网络或服务器状况异常", Toast.LENGTH_SHORT).show();
+//                    }
+//                });
+//            }
+//            @Override
+//            public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException {
+//                Gson gson = new Gson();
+//                String jsonData =response.body().string(); // 从响应体获取的 JSON 字符串
+//                Type responseType = new TypeToken<MyR<Void>>(){}.getType();
+//                MyR<Void> received = gson.fromJson(jsonData, responseType);
+//                if(received.getSuccess()){
+//                    LoginRepository.instance.user.setUserName(String.valueOf(editText.getText()));
+//                    LoginRepository.instance.user.setUserBirthday((String) textView.getText());
+//                    LoginRepository.instance.user.setUserSex(spinner.getSelectedItem().toString());
+//                }
+//                else {
+//                    runOnUiThread(new Runnable() {
+//                        @Override
+//                        public void run() {
+//                            Toast.makeText(getApplicationContext(),"保存失败",Toast.LENGTH_SHORT).show();
+//                        }
+//                    });
+//                }
+//
+//            }
+//        });
+//    }
     private File getImageFileFromImageView(ImageView imageView) {
         // 获取ImageView中的Drawable
         Drawable drawable = imageView.getDrawable();
@@ -273,61 +312,94 @@ public class ModifyActivity extends AppCompatActivity {
 
         return imageFile;
     }
+//    private void uploadImageFile(File imageFile) {
+//        try {
+//            RequestBody fileBody = RequestBody.create(MediaType.parse("image/jpeg"), imageFile);
+//
+//// 创建MultipartBody.Part实例用于文件部分
+//            MultipartBody.Part filePart = MultipartBody.Part.createFormData("avatar", imageFile.getName(), fileBody);
+//
+//
+//// 创建MultipartBody实例并添加文件部分和额外字段
+//            MultipartBody multipartBody = new MultipartBody.Builder()
+//                    .setType(MultipartBody.FORM) // 设置表单类型
+//                    .addPart(filePart) // 添加文件部分
+//                    .addFormDataPart("userId", String.valueOf(LoginRepository.instance.user.getUserId())) // 添加额外字段userId
+//                    .build();
+//
+//            // 创建请求
+//            Request request = new Request.Builder()
+//                    .url(config.upload_url)
+//                    .post(multipartBody)
+//                    .build();
+//
+//            client.newCall(request).enqueue(new Callback() {
+//                @Override
+//                public void onFailure(@NonNull Call call, @NonNull IOException e) {
+//                    runOnUiThread(new Runnable() {
+//                        @Override
+//                        public void run() {
+//                            Toast.makeText(getApplicationContext(), "网络或服务器状况异常", Toast.LENGTH_SHORT).show();
+//                        }
+//                    });
+//                }
+//                @Override
+//                public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+//                    Gson gson = new Gson();
+//                    String jsonData =response.body().string(); // 从响应体获取的 JSON 字符串
+//                    Type responseType = new TypeToken<MyR<Void>>(){}.getType();
+//                    MyR<Void> received = gson.fromJson(jsonData, responseType);
+//                    if(received.getSuccess()!=null&& received.getSuccess()){
+//                        LoginRepository.instance.icon = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
+//                    }
+//                    runOnUiThread(new Runnable() {
+//                            @Override
+//                            public void run() {
+//                                Toast.makeText(getApplicationContext(),received.getSuccess()?"保存成功":"保存失败",Toast.LENGTH_LONG).show();
+//                            }
+//                    });
+//                }
+//            });
+//
+//        }catch (Exception e){
+//          e.printStackTrace();
+//        }
+//
+//    }
     private void uploadImageFile(File imageFile) {
         try {
-            // 创建RequestBody
-            RequestBody fileBody = RequestBody.create(MediaType.parse("image/jpeg"), imageFile);
+        RequestBody fileBody = RequestBody.create(MediaType.parse("image/jpeg"), imageFile);
+        MultipartBody.Part filePart = MultipartBody.Part.createFormData("avatar", imageFile.getName(), fileBody);
+        int userId = LoginRepository.instance.user.getUserId();
 
-            // 创建MultipartBody.Part
-            MultipartBody.Part filePart = MultipartBody.Part.createFormData("avatar", imageFile.getName(), fileBody);
+        // 获取 Retrofit 客户端和准备调用接口
+        UserApi service = ApiService.getClient().create(UserApi.class);
+        Call<MyR<Void>> call = service.uploadFile(userId, filePart);
 
-            // 创建请求体
-            RequestBody requestBody = new MultipartBody.Builder()
-                    .setType(MultipartBody.FORM)
-                    .addPart(filePart)
-                    .build();
-
-            // 创建请求
-            Request request = new Request.Builder()
-                    .url(config.upload_url)
-                    .post(requestBody)
-                    .build();
-
-            client.newCall(request).enqueue(new Callback() {
-                @Override
-                public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(getApplicationContext(), "网络或服务器状况异常", Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                }
-                @Override
-                public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-                    Gson gson = new Gson();
-                    String jsonData =response.body().string(); // 从响应体获取的 JSON 字符串
-                    Type responseType = new TypeToken<MyR<Void>>(){}.getType();
-                    MyR<Void> received = gson.fromJson(jsonData, responseType);
-                    if(received.getSuccess()!=null&& received.getSuccess()){
+        call.enqueue(new Callback<MyR<Void>>() {
+            @Override
+            public void onResponse(Call<MyR<Void>> call, Response<MyR<Void>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    MyR<Void> result = response.body();
+                    if (result.getSuccess()) {
                         LoginRepository.instance.icon = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
+                        runOnUiThread(() -> Toast.makeText(getApplicationContext(), "保存成功", Toast.LENGTH_LONG).show());
+                    } else {
+                        runOnUiThread(() -> Toast.makeText(getApplicationContext(), "保存失败", Toast.LENGTH_LONG).show());
                     }
-                    runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                Toast.makeText(getApplicationContext(),received.getSuccess()?"保存成功":"保存失败",Toast.LENGTH_LONG).show();
-                            }
-                    });
+                } else {
+                    runOnUiThread(() -> Toast.makeText(getApplicationContext(), "保存失败", Toast.LENGTH_LONG).show());
                 }
-            });
+            }
 
-        }catch (Exception e){
-          e.printStackTrace();
+            @Override
+            public void onFailure(Call<MyR<Void>> call, Throwable t) {
+                runOnUiThread(() -> Toast.makeText(getApplicationContext(), "网络或服务器状况异常", Toast.LENGTH_SHORT).show());
+            }
+        });
+        } catch (Exception e) {
+        e.printStackTrace();
         }
-
     }
-
-
-
 
 }
